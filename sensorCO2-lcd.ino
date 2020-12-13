@@ -125,7 +125,7 @@ for(byte j=0;j<tiemposeg;j++){
   delay(1000);
   Serial.print(tiemposeg-j);
   Serial.print(" ... ");
-  if(j<tiemposeg+10){
+  if(j<tiemposeg-10){
    mensaje_lcd(tiemposeg-j,14,1,0);
   }
   else{
