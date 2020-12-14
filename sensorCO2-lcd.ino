@@ -7,15 +7,38 @@
 // Se conecta a4 y A5, 
 LiquidCrystal_I2C lcd(0x3F,16,2);
 #define mensaje_lcd(cadena,fila,columna,acero){ if(acero){ lcd.clear();} lcd.setCursor(fila,columna); lcd.print(cadena); }
-#define a 5.2735 //factor de escala
-#define b -0.3503 //exponente
-#define RL 20000 //Resistencia de carga de 20kohm
-#define TIEMPOSEG 600 //10 minutos
+#define a 5.2735 //factor de escala, obtenido de valores medidos de forma objetiva por otros autores en una regresión exponencial
+#define b -0.3503 //exponente, obtenido de valores medidos de forma objetiva por otros autores en una regresión exponencial
+//#define a 56.0820 //factor de escala
+//#define b -5.9603 //exponente
+/*
+    Exponential regression:
+  GAS      | a      | b
+  CO       | 605.18 | -3.937  
+  Alcohol  | 77.255 | -3.18 
+  CO2      | 110.47 | -2.862
+  Tolueno  | 44.947 | -3.445
+  NH4      | 102.2  | -2.473
+  Acetona  | 34.668 | -3.369
+  */
+
+#define RL 20000 //Resistencia de carga de 10kohm a 47 kohm, en nuestro datasheet es de 20kohm
+//Resistance value of MQ-135 is difference to various kinds and various concentration gases. So,When using
+//this components, sensitivity adjustment is very necessary. we recommend that you calibrate the detector for
+//100ppm NH3 or 50ppm Alcohol concentration in air and use value of Load resistancethat( RL) about 20 KΩ(10KΩ
+// to 47 KΩ).
+#define TIEMPOSEG 600 //10 minutos para establecer el valor medio de R0 en la calibración
 #define ANALOG_PIN A0
 //#define R0 20767.17 //Resistencia constante que se ha obtenido mediante el proceso de calibración
 //equivale al valor de la resistencia del sensor cuando se expone a una concentración de 100 ppm amoniaco en aire limpio
-float R0 = 20767.17;
-
+//float R0 = 20767.17;
+//primera pasad float R0 = 261760;
+//segunda pasada CALIBRADO DE R0, para 10k rl - Resistencia constante: 134342.73
+//tercera pasada para 20k rl, 272295.93
+//cuarta pasada pra 20k de rl, ro 306396.93 14-12-2020
+//364853.43
+float R0 = 280150.00; //indicar el último valor obtenido tras la calibración para tu sensor
+//float R0 = 364853.43;
 /******
  * 
  * SETUP
@@ -43,18 +66,9 @@ void setup() {
     Serial.println(R0);
    Serial.print(F("Empezando calibración.. "));
   
-  R0 = calibracionR0();
+ R0 = calibracionR0(); //Solo se ejecuta al principio una o dos veces, comentar
   //delay(4000);
- /*
-    Exponential regression:
-  GAS      | a      | b
-  CO       | 605.18 | -3.937  
-  Alcohol  | 77.255 | -3.18 
-  CO2      | 110.47 | -2.862
-  Tolueno  | 44.947 | -3.445
-  NH4      | 102.2  | -2.473
-  Acetona  | 34.668 | -3.369
-  */
+ 
   
  
 }
@@ -95,6 +109,16 @@ void firststep(){
    delay(2000);
 }
 
+/*
+ * 
+ * 250-400ppm  Normal background concentration in outdoor ambient air
+400-1,000ppm  Concentrations typical of occupied indoor spaces with good air exchange
+1,000-2,000ppm  Complaints of drowsiness and poor air.
+2,000-5,000 ppm   Headaches, sleepiness and stagnant, stale, stuffy air. Poor concentration, loss of attention, increased heart rate and slight nausea may also be present.
+5,000   Workplace exposure limit (as 8-hour TWA) in most jurisdictions.
+>40,000 ppm   Exposure may lead to serious oxygen deprivation resulting in permanent brain damage, coma, even death. 
+ */
+
 double promediolectura(float R0){
   
 int VALOR, Valor_Medio; //lectura de salida analógica del sensor MQ135
@@ -121,8 +145,10 @@ Valor_Medio = analogRead(ANALOG_PIN);
 VOLTAJE = Valor_Medio * (5.0 /1023.0); //conversión de la lectura en un valor de tensión
 Serial.print(F("VOLTAJE: "));
 Serial.println(VOLTAJE);
+Serial.print(F("RESISTENCIA DE CARGA, RL: "));
+Serial.println(RL);
 
-
+//The datasheet states that Rs should be between 30Kohm and 200Kohm.
 RS = RL*(5.0-VOLTAJE)/VOLTAJE; //Resistencia medida del sensor
 
 // Rs should be between 30Kohm and 200Kohm.
@@ -131,6 +157,8 @@ Serial.println(RS);
 Serial.print(F("CALIBRADO DE R0 - Resistencia constante: "));
 Serial.println(R0);
 co2 = pow((RS/R0)/a,1/b); //calculamos la concentración de los gases con la ecuación obtenida
+//250-350 ppm: background (normal) outdoor air level
+//350-1,000 ppm: typical level found in occupied spaces with good air exchange
 Serial.print(F("CO2: "));
 Serial.println(co2);
 
@@ -151,7 +179,7 @@ Serial.println(TIEMPOSEG);
 for(int j=0;j<TIEMPOSEG;j++){
    VALOR = analogRead(ANALOG_PIN);
   //SumaValor = SumaValor + VALOR;
-  RS = ((float)RL*1023/(float)VALOR) - RL;
+  RS = ((float)RL*1023/(float)VALOR) - (float) RL;
   SumaValor=RS+SumaValor;
   
     Serial.print(TIEMPOSEG-j);
@@ -161,7 +189,7 @@ for(int j=0;j<TIEMPOSEG;j++){
         Serial.print(" (1023/VALOR)):" );
      Serial.print(1023/VALOR);
      Serial.print(" RL*(1023/VALOR)):" );
-     Serial.print(float(RL*(1023/VALOR)));
+     Serial.print(float(RL*(1023/(float)VALOR)));
     Serial.print(" RL: ");
     Serial.print(RL);
     Serial.print(" RS: ");
@@ -182,11 +210,13 @@ for(int j=0;j<TIEMPOSEG;j++){
   }*/
 }
 Serial.print(F("RS VALOR MEDIO: "));
-RSValor_Medio = SumaValor/TIEMPOSEG;
-Serial.println(RSValor_Medio);
+RSValor_Medio = (float) SumaValor/TIEMPOSEG;
+Serial.println((float) RSValor_Medio);
+delay(1000);
+ 
+ ppm_CO2_actual = 412; //este valor se obtiene de https://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo
 
- ppm_CO2_actual = analogRead(ANALOG_PIN);
- R0 = RSValor_Medio/(a*pow(ppm_CO2_actual,b)); //R0 calibrado
+ R0 = (float) RSValor_Medio/(a*pow(ppm_CO2_actual,b)); //R0 calibrado
 
 
 Serial.print(F("R0 CALIBRADO: "));
