@@ -46,7 +46,7 @@ float R0 = 280150.00; //indicar el último valor obtenido tras la calibración p
 void setup() {
   // put your setup code here, to run once:
 
-/*//LCD Pantalla
+//LCD Pantalla
         lcd.init();
         lcd.begin(16,2); 
      //Encender la luz de fondo.
@@ -54,12 +54,13 @@ void setup() {
  
       mensaje_lcd(F("Medicion co2"),0,0,1);
   mensaje_lcd(F("Hola!"),0,1,0);
+  delay(2000);
   mensaje_lcd(F("Calibrando..."),0,1,0);
    mensaje_lcd(F("Co2: "),0,0,1);
- */
+ delay(2000);
   
    Serial.begin(9600);
-   Serial.print(F("Resistencia de carga de 20kohm: "));
+   Serial.print(F("Resistencia de carga: "));
    
    Serial.println(RL);
     Serial.print(F("Resistencia constante por defecto (hay que calibrar): "));
@@ -75,15 +76,15 @@ void setup() {
 
 void loop() {
 
-  promediolectura(R0);
+  //promediolectura(R0);
 
 
-/*
+
  mensaje_lcd(promediolectura(R0),5,0,0);
  mensaje_lcd(F("ppm"),13,0,0);
  mensaje_lcd(F("tiempo(h): "),0,1,0);
   mensaje_lcd(millis()/3600000,12,1,0);
- */
+ 
  firststep();
 
 
