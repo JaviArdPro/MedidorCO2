@@ -21,7 +21,10 @@ LiquidCrystal_I2C lcd(0x3F,16,2);
   NH4      | 102.2  | -2.473
   Acetona  | 34.668 | -3.369
   */
-
+//minimo valor para  Rs/Ro
+#define minRsRo  0.358
+//maximo valor Rs/Ro
+#define maxRsRo  2.428
 #define RL 20000 //Resistencia de carga de 10kohm a 47 kohm, en nuestro datasheet es de 20kohm
 //Resistance value of MQ-135 is difference to various kinds and various concentration gases. So,When using
 //this components, sensitivity adjustment is very necessary. we recommend that you calibrate the detector for
@@ -37,7 +40,14 @@ LiquidCrystal_I2C lcd(0x3F,16,2);
 //tercera pasada para 20k rl, 272295.93
 //cuarta pasada pra 20k de rl, ro 306396.93 14-12-2020
 //364853.43
-float R0 = 280150.00; //indicar el último valor obtenido tras la calibración para tu sensor
+//quinta pasada relevante  a las 24 horas -CALIBRADO DE R0 - Resistencia constante: 294741.31 con valor adc 412
+//sexta psada con 10 minutos con valor adc 412 - 295056.37
+
+
+//float R0 = 364853.43; //indicar el último valor obtenido tras la calibración para tu sensor
+
+float ppmprom=0;
+float R0 = 577609.75; //valor tras más de 48 horas encendido el sensor de temperatura con valor co2adc de 400
 //float R0 = 364853.43;
 /******
  * 
@@ -55,9 +65,10 @@ void setup() {
       mensaje_lcd(F("Medicion co2"),0,0,1);
   mensaje_lcd(F("Hola!"),0,1,0);
   delay(2000);
-  mensaje_lcd(F("Calibrando..."),0,1,0);
-   mensaje_lcd(F("Co2: "),0,0,1);
- delay(2000);
+  //mensaje_lcd(F("Calibrando..."),0,1,0);
+  delay(2000);
+    mensaje_lcd(F("Co2: "),0,0,1);
+
   
    Serial.begin(9600);
    Serial.print(F("Resistencia de carga: "));
@@ -67,7 +78,7 @@ void setup() {
     Serial.println(R0);
    Serial.print(F("Empezando calibración.. "));
   
- R0 = calibracionR0(); //Solo se ejecuta al principio una o dos veces, comentar
+//R0 = calibracionR0(); //Solo se ejecuta al principio una o dos veces, comentar
   //delay(4000);
  
   
@@ -77,13 +88,24 @@ void setup() {
 void loop() {
 
   //promediolectura(R0);
-
-
-
- mensaje_lcd(promediolectura(R0),5,0,0);
+  if(millis() % 300 == 0){
+    mensaje_lcd(F("Co2: "),0,0,1);
+  }
+ ppmprom =promediolectura(R0);
+  //mensaje_lcd(F("Co2: "),0,0,1);
+  if (ppmprom != 0){
+    mensaje_lcd(promediolectura(R0),5,0,0);
+  }
+ else{
+  mensaje_lcd("indef",5,0,0);
+ }
+    
+    
  mensaje_lcd(F("ppm"),13,0,0);
- mensaje_lcd(F("tiempo(h): "),0,1,0);
-  mensaje_lcd(millis()/3600000,12,1,0);
+ mensaje_lcd(F("t(h):"),0,1,0);
+  mensaje_lcd(millis()/3600000,5,1,0);
+   mensaje_lcd(F("adc:"),7,1,0);
+ mensaje_lcd((int)mediumvalue_ADC(),11,1,0);
  
  firststep();
 
@@ -98,7 +120,7 @@ void firststep(){
   //VALOR is a 10 bit number in the range from 0 to 1023 which represents voltage from 0 to 1 V
   //1023/(value-1)*RL
   voltaje = VALOR * (5.0 / 1023.0);
- // mensaje_lcd(F("ValorA0: "),0,0,1);
+ // mensaje_lcd(F("ValorA0: "),0,1,0);
  //mensaje_lcd(VALOR,10,0,0);
    Serial.print("ADC: ");
   Serial.print(VALOR);
@@ -120,27 +142,37 @@ void firststep(){
 >40,000 ppm   Exposure may lead to serious oxygen deprivation resulting in permanent brain damage, coma, even death. 
  */
 
-double promediolectura(float R0){
-  
-int VALOR, Valor_Medio; //lectura de salida analógica del sensor MQ135
-double SumaValor=0; //suma correspondiente a 5 lectuas
-float VOLTAJE; //Conversión de la lectura a un valor de voltaje
-double RS; //Resistencia del sensor MQ135 variable con un Rl de 20 Kohmios
-double co2; //Concentración de dióxido de carbono calculada con la ecuación obtenida
-
-  for(byte i=0;i<5;i++){
+float mediumvalue_ADC(){
+int VALOR, SumaValor;
+float Valor_Medio;
+   for(byte i=0;i<5;i++){
   //If the analog input pin is not connected to anything, the value returned by analogRead() 
   //will fluctuate based on a number of factors (e.g. the values of the other analog inputs, 
   //how close your hand is to the board, etc.).
   VALOR = analogRead(ANALOG_PIN);
   //Serial.print(F("Valor analogico sensor: "));
   //Serial.println(VALOR);
-  SumaValor = SumaValor+VALOR;
+  SumaValor = SumaValor+ VALOR;
   delay(1000);
    }
+   Valor_Medio = (float) SumaValor/5.0;
+   return Valor_Medio;
+}
 
-Valor_Medio = SumaValor/5;
-Valor_Medio = analogRead(ANALOG_PIN);
+float promediolectura(float R0){
+  
+float Valor_Medio; //lectura de salida analógica del sensor MQ135
+float SumaValor=0; //suma correspondiente a 5 lectuas
+float VOLTAJE; //Conversión de la lectura a un valor de voltaje
+float RS; //Resistencia del sensor MQ135 variable con un Rl de 20 Kohmios
+float co2=0; //Concentración de dióxido de carbono calculada con la ecuación obtenida
+
+ 
+
+
+Valor_Medio = mediumvalue_ADC();
+
+//Valor_Medio = analogRead(ANALOG_PIN);
   Serial.print(F("Valor medio analógico A0 cada 5 segundos: "));
   Serial.println(Valor_Medio);
 VOLTAJE = Valor_Medio * (5.0 /1023.0); //conversión de la lectura en un valor de tensión
@@ -157,12 +189,24 @@ Serial.print(F("RESISTENCIA VARIABLE MEDIDA DEL SENSOR (RS): "));
 Serial.println(RS);
 Serial.print(F("CALIBRADO DE R0 - Resistencia constante: "));
 Serial.println(R0);
+
+ float rSrO = (float)RS / (float)R0;
+  Serial.print("Rs/Ro: ");
+  Serial.println(rSrO);
+
+  if(rSrO < maxRsRo && rSrO > minRsRo) {
+
 co2 = pow((RS/R0)/a,1/b); //calculamos la concentración de los gases con la ecuación obtenida
 //250-350 ppm: background (normal) outdoor air level
 //350-1,000 ppm: typical level found in occupied spaces with good air exchange
 Serial.print(F("CO2: "));
 Serial.println(co2);
 
+  }
+  else{
+
+  Serial.print("Rs/Ro FUERA DE RANGO");
+  }
   return co2;
 }
 
@@ -177,6 +221,7 @@ float RS;
 SumaValor=0;
 Serial.println(F("PROCESO DE CALIBRACIÓN....segundos restantes:  "));
 Serial.println(TIEMPOSEG);
+   mensaje_lcd("Calibrando...",1,1,0);
 for(int j=0;j<TIEMPOSEG;j++){
    VALOR = analogRead(ANALOG_PIN);
   //SumaValor = SumaValor + VALOR;
@@ -214,8 +259,8 @@ Serial.print(F("RS VALOR MEDIO: "));
 RSValor_Medio = (float) SumaValor/TIEMPOSEG;
 Serial.println((float) RSValor_Medio);
 delay(1000);
- 
- ppm_CO2_actual = 412; //este valor se obtiene de https://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo
+//ppm_CO2_actual = analogRead(ANALOG_PIN);
+ ppm_CO2_actual = 400; //este valor se obtiene de https://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo
 
  R0 = (float) RSValor_Medio/(a*pow(ppm_CO2_actual,b)); //R0 calibrado
 
@@ -223,5 +268,9 @@ delay(1000);
 Serial.print(F("R0 CALIBRADO: "));
 Serial.println(R0);
 Serial.println(F("FIN DEL PROCESO DE CALIBRACIÓN R0"));
+mensaje_lcd("  Calibrado",1,1,0);
+delay(2000);
+mensaje_lcd("",1,1,1);
+mensaje_lcd(F("Co2: "),0,0,1);
   return R0;
 }
