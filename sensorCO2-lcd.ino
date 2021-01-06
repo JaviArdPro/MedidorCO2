@@ -47,7 +47,9 @@ LiquidCrystal_I2C lcd(0x3F,16,2);
 //float R0 = 364853.43; //indicar el último valor obtenido tras la calibración para tu sensor
 
 float ppmprom=0;
-float R0 = 577609.75; //valor tras más de 48 horas encendido el sensor de temperatura con valor co2adc de 400
+//float R0 = 577609.75; //valor tras más de 48 horas encendido el sensor de temperatura con valor co2adc de 400
+float R0 = 789873.12; //valor tras recalibrado el 6 de enero 2021
+
 //float R0 = 364853.43;
 /******
  * 
@@ -74,15 +76,17 @@ void setup() {
    Serial.print(F("Resistencia de carga: "));
    
    Serial.println(RL);
-    Serial.print(F("Resistencia constante por defecto (hay que calibrar): "));
+    Serial.print(F("Resistencia constante por defecto (si no hay que calibrar): "));
     Serial.println(R0);
    Serial.print(F("Empezando calibración.. "));
-  
-//R0 = calibracionR0(); //Solo se ejecuta al principio una o dos veces, comentar
+    mensaje_lcd(F("Inicializando.."),0,1,0);
+   delay(30000); //aunque este calibrado y precalentado, se recomienda aguardar 30 segundos después de estar apagado
+R0 = calibracionR0(); //Solo se ejecuta al principio una o dos veces, y se establece valor constante en define, comentar si no es necesario
   //delay(4000);
- 
-  
- 
+
+
+delay(1000);
+mensaje_lcd(F("co2:"),0,1,1);
 }
 
 void loop() {
@@ -92,20 +96,22 @@ void loop() {
     mensaje_lcd(F("Co2: "),0,0,1);
   }
  ppmprom =promediolectura(R0);
-  //mensaje_lcd(F("Co2: "),0,0,1);
+ 
   if (ppmprom != 0){
     mensaje_lcd(promediolectura(R0),5,0,0);
+     mensaje_lcd(F("Co2: "),0,0,0);
   }
- else{
-  mensaje_lcd("indef",5,0,0);
+ else{ //FUERA DE RANGO
+  mensaje_lcd("indef",5,0,1);
+  mensaje_lcd(F("Co2: "),0,0,0);
  }
     
     
  mensaje_lcd(F("ppm"),13,0,0);
  mensaje_lcd(F("t(h):"),0,1,0);
   mensaje_lcd(millis()/3600000,5,1,0);
-   mensaje_lcd(F("adc:"),7,1,0);
- mensaje_lcd((int)mediumvalue_ADC(),11,1,0);
+   mensaje_lcd(F("adc:"),8,1,0);
+ //mensaje_lcd(mediumvalue_ADC(),12,1,0);
  
  firststep();
 
@@ -124,6 +130,7 @@ void firststep(){
  //mensaje_lcd(VALOR,10,0,0);
    Serial.print("ADC: ");
   Serial.print(VALOR);
+  mensaje_lcd(VALOR,12,1,0);
   Serial.print(" Voltaje: ");
    Serial.print(voltaje);
   gasval= map(VALOR, 0, 1023, 0, 100);
